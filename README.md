@@ -214,6 +214,102 @@ python3 examples/generation.py \
 ```
 
 
+## RunPod Serverless Deployment
+
+We include a reference worker and container setup so you can deploy Higgs Audio on
+[RunPod Serverless](https://www.runpod.io/serverless) with minimal effort. The worker implementation
+lives in [`serverless/runpod_worker.py`](serverless/runpod_worker.py) and the container recipe is at
+[`deploy/runpod/Dockerfile`](deploy/runpod/Dockerfile). Install dependencies with
+[`requirements-runpod.txt`](requirements-runpod.txt) when building the image.
+
+### Build and publish the container
+
+```bash
+docker build -f deploy/runpod/Dockerfile -t <your-registry>/higgs-audio-runpod:latest .
+docker push <your-registry>/higgs-audio-runpod:latest
+```
+
+### Create a RunPod template
+
+When configuring your template:
+
+- Use the image you built above.
+- Set the command to `python -m serverless.runpod_worker`.
+- Request a GPU with **at least 24 GB of VRAM** (e.g. RTX 6000 Ada, A5000, or better).
+- Add any required environment variables, such as `HUGGING_FACE_HUB_TOKEN` if the model is stored in a
+  private repository, or overrides like `HIGGS_AUDIO_MODEL_ID`, `HIGGS_AUDIO_AUDIO_TOKENIZER_ID`,
+  `HIGGS_AUDIO_SYSTEM_PROMPT`, `HIGGS_AUDIO_DEVICE`, and `HIGGS_AUDIO_TORCH_DTYPE`.
+
+### Request payload schema
+
+Send JSON payloads with a top-level `input` dictionary. Important fields include:
+
+- `script` / `prompt` / `transcript` *(string, optional)* – text you want the model to speak.
+- `system_prompt` *(string, optional)* – override the default system message.
+- `scene_prompt` *(string, optional)* – appended inside `<|scene_desc_start|>` tags.
+- `script_speaker_tag` *(string, optional)* – prepends a speaker tag (e.g. `SPEAKER0`) to the script message.
+- `temperature`, `top_p`, `top_k`, `max_new_tokens`, `ras_win_len`, `ras_win_max_num_repeat`, `seed`, and
+  `stop_strings` *(optional)* – generation controls forwarded directly to the model.
+- `response_format` *("wav" or "flac", optional)* – format of the returned audio, default is WAV.
+- `download_timeout` *(float, optional)* – seconds to wait for downloading reference audio URLs.
+- `return_audio_tokens` / `return_text_tokens` *(bool, optional)* – include raw token sequences in the response.
+
+Voice cloning inputs can be supplied in two ways:
+
+1. A `references` array containing objects with any of the following keys:
+   - `audio_url` / `url` – publicly reachable audio file URL (`.wav`, `.mp3`, etc.).
+   - `audio_base64` / `base64` / `raw_audio` – base64-encoded audio data (data URI prefixes supported).
+   - `path` / `audio_path` – local path inside the container (e.g. from mounted input objects).
+   - `transcript` / `text` / `prompt` *(optional)* – text spoken in the reference clip, recommended for best results.
+   - `speaker_tag` *(optional)* – tag inserted before the transcript, such as `SPEAKER0`.
+   - `file_extension` / `extension` *(optional)* – override extension when supplying base64 data.
+
+2. Convenience fields at the top level: `reference_audio_url` / `reference_audio_urls`,
+   `reference_audio_base64`, `reference_audio_path`, `reference_transcript(s)`, and
+   `reference_speaker_tag(s)`. You can mix and match these and the worker will normalise them.
+
+### Example payloads
+
+**Clone a hosted voice sample**
+
+```json
+{
+  "input": {
+    "script": "Please introduce yourself and describe the weather today in a cheerful tone.",
+    "system_prompt": "Generate audio following instruction.",
+    "references": [
+      {
+        "audio_url": "https://example.com/voices/belinda.wav",
+        "transcript": "Hi there, I'm Belinda. It's great to meet you!",
+        "speaker_tag": "SPEAKER0"
+      }
+    ],
+    "temperature": 0.3,
+    "top_p": 0.95,
+    "max_new_tokens": 1024
+  }
+}
+```
+
+**Generate without a reference clip**
+
+```json
+{
+  "input": {
+    "script": "Narrate a 30-second bedtime story about a brave astronaut discovering a friendly alien village.",
+    "system_prompt": "Produce an expressive single-speaker narration.",
+    "scene_prompt": "Soft bedtime storytelling with gentle background ambience.",
+    "temperature": 0.25,
+    "top_p": 0.9
+  }
+}
+```
+
+The worker returns a dictionary containing the base64-encoded audio (`audio_base64`), its MIME type and
+format, sampling rate, the autoregressive text that the model produced, and token usage metadata. You can
+decode the base64 string locally to obtain the `.wav`/`.flac` file.
+
+
 ## Technical Details
 <img src="figures/higgs_audio_v2_architecture_combined.png" width=900>
 
