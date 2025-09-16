@@ -225,10 +225,11 @@ lives in [`serverless/runpod_worker.py`](serverless/runpod_worker.py) and the co
 ### Build and publish the container
 
 
-The `deploy/runpod/Dockerfile` image is based on `runpod/pytorch:0.7.0-cu1241-torch240-ubuntu2004`,
-which already includes CUDA-enabled `torch`, `torchvision`, and `torchaudio`. The accompanying
-`requirements-runpod.txt` intentionally omits those packages so the GPU builds provided by
-RunPod stay intact.
+The `deploy/runpod/Dockerfile` image is based on
+`nvidia/cuda:12.4.1-cudnn9-runtime-ubuntu22.04`. During the build we install Python 3 along with
+CUDA-enabled `torch==2.4.0`, `torchvision==0.19.0`, and `torchaudio==2.4.0` from the official
+PyTorch wheel index. The accompanying `requirements-runpod.txt` pins those packages and enables the
+`hf_transfer` extra in `huggingface-hub` so downloads work reliably on RunPod.
 
 #### Option A: Build locally and push to your registry
 
@@ -254,6 +255,9 @@ RunPod can build the worker directly from this repository:
 > The dependency installation step downloads large Python wheels and can take several minutes.
 > Open the **Build Logs** tab in the RunPod UI to verify progress while the template reports
 > "Waiting for build".
+
+A sample `test_input.json` payload is bundled at the repository root so you have a ready-made request
+body for local validation or when exercising the deployed endpoint from the RunPod dashboard.
 
 ### Create a RunPod template
 

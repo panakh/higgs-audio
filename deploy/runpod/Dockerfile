@@ -1,28 +1,44 @@
-FROM runpod/pytorch:0.7.0-cu1241-torch240-ubuntu2004
+# syntax=docker/dockerfile:1.7
 
-ENV DEBIAN_FRONTEND=noninteractive
-WORKDIR /workspace
+FROM nvidia/cuda:12.4.1-cudnn9-runtime-ubuntu22.04
 
-RUN apt-get update \
+# Remove stale third-party APT sources that may cause build failures
+RUN rm -f /etc/apt/sources.list.d/*.list
 
-    && apt-get install -y --no-install-recommends ffmpeg libsndfile1 git \
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt ./
-COPY requirements-runpod.txt ./
-
-
-RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && python -m pip install --no-cache-dir -r requirements-runpod.txt
-
-COPY . .
-
-RUN python -m pip install --no-cache-dir -e .
-
-
-ENV PYTHONUNBUFFERED=1 \
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
     HF_HUB_ENABLE_HF_TRANSFER=1
 
+WORKDIR /workspace
 
-CMD ["python", "-u", "-m", "serverless.runpod_worker"]
+# Install system dependencies and Python
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        curl \
+        ffmpeg \
+        git \
+        libsndfile1 \
+        python3 \
+        python3-dev \
+        python3-pip \
+        python3-venv \
+        python-is-python3 \
+        wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip tooling
+RUN python -m pip install --upgrade pip setuptools wheel
+
+# Install Python dependencies
+COPY requirements-runpod.txt ./requirements-runpod.txt
+RUN python -m pip install --no-cache-dir -r requirements-runpod.txt
+
+# Copy source and install the package
+COPY . .
+RUN python -m pip install --no-cache-dir -e .
+
+CMD ["python3", "-u", "-m", "serverless.runpod_worker"]
