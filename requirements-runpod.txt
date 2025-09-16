@@ -1,3 +1,25 @@
--r requirements.txt
+descript-audio-codec
+transformers>=4.45.1,<4.47.0
+librosa
+dacite
+boto3==1.35.36
+s3fs
+json_repair
+pandas
+pydantic
+vector_quantize_pytorch
+loguru
+pydub
+omegaconf
+click
+langid
+jieba
+accelerate>=0.26.0
+soundfile
+tqdm
+einops
+huggingface-hub>=0.25.0
+sentencepiece
+safetensors
 runpod==1.7.13
 requests>=2.32.3

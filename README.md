@@ -224,17 +224,45 @@ lives in [`serverless/runpod_worker.py`](serverless/runpod_worker.py) and the co
 
 ### Build and publish the container
 
+
+The `deploy/runpod/Dockerfile` image is based on `runpod/pytorch:0.7.0-cu1241-torch240-ubuntu2004`,
+which already includes CUDA-enabled `torch`, `torchvision`, and `torchaudio`. The accompanying
+`requirements-runpod.txt` intentionally omits those packages so the GPU builds provided by
+RunPod stay intact.
+
+#### Option A: Build locally and push to your registry
+
 ```bash
 docker build -f deploy/runpod/Dockerfile -t <your-registry>/higgs-audio-runpod:latest .
 docker push <your-registry>/higgs-audio-runpod:latest
 ```
 
+
+Use the pushed image name when configuring your RunPod template.
+
+#### Option B: Use RunPod Cloud Build
+
+RunPod can build the worker directly from this repository:
+
+1. In the RunPod dashboard, create a new **Serverless Template** and choose **Dockerfile** as the
+   container source.
+2. Point the builder at `https://github.com/boson-ai/higgs-audio.git` (or your fork) and set the
+   build context to `/` with the Dockerfile path `deploy/runpod/Dockerfile`.
+3. Provide any required build secrets (e.g., `HUGGING_FACE_HUB_TOKEN`) and start the build.
+
+> [!TIP]
+> The dependency installation step downloads large Python wheels and can take several minutes.
+> Open the **Build Logs** tab in the RunPod UI to verify progress while the template reports
+> "Waiting for build".
+
 ### Create a RunPod template
 
 When configuring your template:
 
-- Use the image you built above.
-- Set the command to `python -m serverless.runpod_worker`.
+
+- Use the image you built above (or the Cloud Build result).
+- Set the command to `python -u -m serverless.runpod_worker`.
+
 - Request a GPU with **at least 24 GB of VRAM** (e.g. RTX 6000 Ada, A5000, or better).
 - Add any required environment variables, such as `HUGGING_FACE_HUB_TOKEN` if the model is stored in a
   private repository, or overrides like `HIGGS_AUDIO_MODEL_ID`, `HIGGS_AUDIO_AUDIO_TOKENIZER_ID`,
