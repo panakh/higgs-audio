@@ -1,0 +1,8 @@
+{
+  "input": {
+    "script": "Hello from the Higgs Audio RunPod worker!",
+    "max_new_tokens": 128,
+    "temperature": 0.3,
+    "top_p": 0.95
+  }
+}
