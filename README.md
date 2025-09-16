@@ -224,6 +224,7 @@ lives in [`serverless/runpod_worker.py`](serverless/runpod_worker.py) and the co
 
 ### Build and publish the container
 
+
 The `deploy/runpod/Dockerfile` image is based on `runpod/pytorch:0.7.0-cu1241-torch240-ubuntu2004`,
 which already includes CUDA-enabled `torch`, `torchvision`, and `torchaudio`. The accompanying
 `requirements-runpod.txt` intentionally omits those packages so the GPU builds provided by
@@ -235,6 +236,7 @@ RunPod stay intact.
 docker build -f deploy/runpod/Dockerfile -t <your-registry>/higgs-audio-runpod:latest .
 docker push <your-registry>/higgs-audio-runpod:latest
 ```
+
 
 Use the pushed image name when configuring your RunPod template.
 
@@ -257,8 +259,10 @@ RunPod can build the worker directly from this repository:
 
 When configuring your template:
 
+
 - Use the image you built above (or the Cloud Build result).
 - Set the command to `python -u -m serverless.runpod_worker`.
+
 - Request a GPU with **at least 24 GB of VRAM** (e.g. RTX 6000 Ada, A5000, or better).
 - Add any required environment variables, such as `HUGGING_FACE_HUB_TOKEN` if the model is stored in a
   private repository, or overrides like `HIGGS_AUDIO_MODEL_ID`, `HIGGS_AUDIO_AUDIO_TOKENIZER_ID`,

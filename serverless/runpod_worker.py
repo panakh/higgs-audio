@@ -48,6 +48,7 @@ DEFAULT_RAS_WIN_MAX_REPEAT = int(os.environ.get("HIGGS_AUDIO_RAS_WIN_MAX_REPEAT"
 DEFAULT_OUTPUT_FORMAT = os.environ.get("HIGGS_AUDIO_RESPONSE_FORMAT", "wav")
 DEFAULT_DOWNLOAD_TIMEOUT = float(os.environ.get("HIGGS_AUDIO_DOWNLOAD_TIMEOUT", "30"))
 
+
 LOGGER.info(
     "RunPod worker initialised. Model=%s, audio tokenizer=%s, dtype env=%s",
     DEFAULT_MODEL_ID,
@@ -395,9 +396,11 @@ def _encode_audio_to_base64(audio: Any, sampling_rate: int, fmt: str) -> dict[st
 
 
 def handler(job: dict[str, Any]) -> dict[str, Any]:
+
     job_input = job.get("input", {}) or {}
     job_id = job.get("id") or job.get("jobId") or job.get("job_id") or "unknown"
     LOGGER.info("Job %s received. Fields=%s", job_id, sorted(job_input.keys()))
+
     timeout = float(job_input.get("download_timeout", DEFAULT_DOWNLOAD_TIMEOUT))
     script = job_input.get("script") or job_input.get("prompt") or job_input.get("transcript")
     if isinstance(script, str):
@@ -408,12 +411,15 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     messages_payload = job_input.get("messages")
 
     if script is None and not messages_payload:
+
         LOGGER.warning("Job %s rejected: neither script nor messages provided.", job_id)
+
         return {"error": "Request must include a 'script'/'prompt' or pre-built 'messages'."}
 
     try:
         with tempfile.TemporaryDirectory(prefix="higgs_audio_refs_") as temp_dir:
             references = _prepare_reference_audios(job_input, temp_dir, timeout)
+
             LOGGER.info("Job %s: normalised %d reference clip(s).", job_id, len(references))
 
             messages: list[Message] = []
@@ -432,12 +438,15 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 messages.append(_build_script_message(script, job_input.get("script_speaker_tag")))
 
             if not messages:
+
                 LOGGER.warning("Job %s rejected: empty message list after preprocessing.", job_id)
+
                 return {"error": "No messages available to send to the model."}
 
             chat_sample = ChatMLSample(messages=messages)
             engine = _get_engine()
             generation_kwargs = _extract_generation_kwargs(job_input)
+
             LOGGER.info(
                 "Job %s: invoking model with %d messages (max_new_tokens=%s, temperature=%s, top_p=%s, top_k=%s)",
                 job_id,
@@ -455,11 +464,13 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 )
 
             if response.audio is None:
+
                 LOGGER.error("Job %s failed: model returned no audio tokens.", job_id)
                 return {"error": "Model did not return audio tokens."}
 
             audio_format = job_input.get("response_format", DEFAULT_OUTPUT_FORMAT)
             audio_payload = _encode_audio_to_base64(response.audio, response.sampling_rate, audio_format)
+
 
             duration_seconds = 0.0
             try:
@@ -472,6 +483,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 duration_seconds,
                 response.sampling_rate,
             )
+
 
             result: dict[str, Any] = {
                 "audio_base64": audio_payload["base64"],
